@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:smtp": "tsx scripts/test-smtp.ts",
-    "test:db": "tsx scripts/test-db.ts"
+    "test:db": "tsx scripts/test-db.ts",
+    "preview:email": "tsx scripts/preview-team-email.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",

@@ -73,5 +73,13 @@ describe("Passwordless Auth Service", () => {
     expect(html).toContain("103.145.74.22");
     expect(html).toContain("https://framer.com");
     expect(html).toContain("Qubtic Technologies");
+
+    // Verify Left side App Logo & Right side Company Logo layout
+    expect(html).toContain("FRAMER PLUGIN APP");
+    expect(html).toContain("FrameKit");
+    expect(html).toContain("QUBTIC");
+    expect(html).toContain("TECHNOLOGIES HQ");
+    expect(html).toContain("hello@qubtic.com");
+    expect(html).toContain("Reply to User");
   });
 });

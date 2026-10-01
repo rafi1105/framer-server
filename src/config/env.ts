@@ -15,7 +15,7 @@ const envSchema = z.object({
   SMTP_USER: z.string().default("qubticpro@gmail.com"),
   SMTP_PASS: z.string().default(""),
   SMTP_FROM: z.string().default('"FrameKit by Qubtic" <noreply@qubtic.tech>'),
-  TEAM_NOTIFICATION_EMAIL: z.string().default("qubticpro@gmail.com"),
+  TEAM_NOTIFICATION_EMAIL: z.string().default("hello@qubtic.tech"),
   CLIENT_ORIGIN: z.string().default("http://localhost:5173"),
 });
 
