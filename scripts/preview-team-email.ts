@@ -1,20 +1,20 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { ObjectId } from "mongodb";
 import { generateNewUserTeamNotificationEmailHtml } from "../src/services/email.js";
+import { UserRecord } from "../src/db/supabase.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 async function main() {
-  const sampleUser = {
-    _id: new ObjectId("6700f1a9b2c3d4e5f6789012"),
+  const sampleUser: UserRecord = {
+    id: "a1b2c3d4-e5f6-4789-a012-3456789abcde",
     email: "alex.rivera@designstudio.io",
     name: "Alex Rivera",
-    createdAt: new Date("2026-10-01T21:40:00Z"),
-    updatedAt: new Date("2026-10-01T21:40:00Z"),
-    lastLoginAt: new Date("2026-10-01T21:40:00Z"),
+    created_at: "2026-10-01T21:40:00Z",
+    updated_at: "2026-10-01T21:40:00Z",
+    last_login_at: "2026-10-01T21:40:00Z",
     role: "user",
   };
 
@@ -39,8 +39,7 @@ async function main() {
   console.log("  • Right Side: Company Logo (Qubtic Technologies)");
   console.log("  • Status Banner: Automatic Dispatch to hello@qubtic.com");
   console.log("  • User Spotlight Card with 1-Click 'Reply to User' mailto CTA");
-  console.log("  • Comprehensive Account & Telemetry Specification Grid");
-  console.log("  • Team Quick Links (Email, Qubtic Portal, Documentation)");
+  console.log("  • Compact Specification Grid (Supabase UUID & Telemetry)");
   console.log("--------------------------------------------------");
   console.log("You can double click or open 'preview-team-notification.html' in your browser to view the design!");
 }

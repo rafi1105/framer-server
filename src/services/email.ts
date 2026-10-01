@@ -1,6 +1,6 @@
 import nodemailer from "nodemailer";
 import { env } from "../config/env.js";
-import { UserDocument } from "../db/mongo.js";
+import { UserRecord, UserDocument } from "../db/supabase.js";
 
 export const transporter = nodemailer.createTransport({
   host: env.SMTP_HOST,
@@ -142,10 +142,11 @@ export function generateNewUserTeamNotificationEmailHtml(
   user: UserDocument,
   meta?: { ip?: string; userAgent?: string; origin?: string }
 ): string {
-  const formattedDate = user.createdAt ? new Date(user.createdAt).toUTCString() : new Date().toUTCString();
+  const dateRaw = user.created_at || user.createdAt;
+  const formattedDate = dateRaw ? new Date(dateRaw).toUTCString() : new Date().toUTCString();
   const userName = user.name || "Not provided";
   const userEmail = user.email;
-  const userId = user._id?.toString() || "Auto-generated";
+  const userId = user.id || user._id?.toString() || "Auto-generated";
   const clientOrigin = meta?.origin || "FrameKit Plugin for Framer";
   const clientIp = meta?.ip || "Not recorded";
 
@@ -339,7 +340,7 @@ export async function sendNewUserTeamNotification(
     from: env.SMTP_FROM,
     to: targetEmail,
     subject: `🚀 New User Sign Up: ${user.name || user.email} via FrameKit | Qubtic Team Alert`,
-    text: `New user sign up on FrameKit (Qubtic)!\nEmail: ${user.email}\nName: ${user.name || "N/A"}\nID: ${user._id?.toString()}\nRegistered: ${user.createdAt}\nNotification sent to: ${targetEmail}`,
+    text: `New user sign up on FrameKit (Qubtic)!\nEmail: ${user.email}\nName: ${user.name || "N/A"}\nID: ${user.id || user._id?.toString()}\nRegistered: ${user.created_at || user.createdAt}\nNotification sent to: ${targetEmail}`,
     html,
   });
 

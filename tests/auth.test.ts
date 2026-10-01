@@ -4,7 +4,7 @@ import {
   generateVerificationEmailHtml,
   generateNewUserTeamNotificationEmailHtml,
 } from "../src/services/email.js";
-import { ObjectId } from "mongodb";
+import { UserRecord } from "../src/db/supabase.js";
 
 describe("Passwordless Auth Service", () => {
   it("should generate a 6-digit OTP string", () => {
@@ -46,13 +46,13 @@ describe("Passwordless Auth Service", () => {
   });
 
   it("should generate branded HTML team notification email with full user sign-up details", () => {
-    const mockUser = {
-      _id: new ObjectId("507f1f77bcf86cd799439011"),
+    const mockUser: UserRecord = {
+      id: "507f1f77-bcf8-4cd7-9943-9011abcdef12",
       email: "newcreator@gmail.com",
       name: "Rafi Kabir",
-      createdAt: new Date("2026-10-01T12:00:00Z"),
-      updatedAt: new Date("2026-10-01T12:00:00Z"),
-      lastLoginAt: new Date("2026-10-01T12:00:00Z"),
+      created_at: "2026-10-01T12:00:00Z",
+      updated_at: "2026-10-01T12:00:00Z",
+      last_login_at: "2026-10-01T12:00:00Z",
       role: "user",
     };
 
@@ -69,7 +69,7 @@ describe("Passwordless Auth Service", () => {
     expect(html).toContain("FrameKit Team Alert");
     expect(html).toContain("newcreator@gmail.com");
     expect(html).toContain("Rafi Kabir");
-    expect(html).toContain("507f1f77bcf86cd799439011");
+    expect(html).toContain("507f1f77-bcf8-4cd7-9943-9011abcdef12");
     expect(html).toContain("103.145.74.22");
     expect(html).toContain("https://framer.com");
     expect(html).toContain("Qubtic Technologies");

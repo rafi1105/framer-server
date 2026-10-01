@@ -1,8 +1,7 @@
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import { env } from "../config/env.js";
-import { getDb, UserDocument, VerificationCodeDocument } from "../db/mongo.js";
-import { ObjectId } from "mongodb";
+import { getSupabase, UserRecord } from "../db/supabase.js";
 
 export interface AuthTokenPayload {
   userId: string;
@@ -30,19 +29,23 @@ export async function createAndSaveVerificationCode(
   email: string,
   name?: string
 ): Promise<{ code: string; expiresAt: Date }> {
-  const db = await getDb();
+  const supabase = getSupabase();
   const normalizedEmail = email.toLowerCase().trim();
 
   // Check rate limit: ensure no code was sent within the last 60 seconds
-  const recent = await db.collection<VerificationCodeDocument>("verification_codes").findOne({
-    email: normalizedEmail,
-    createdAt: { $gt: new Date(Date.now() - 60 * 1000) },
-  });
+  const sixtySecsAgo = new Date(Date.now() - 60 * 1000).toISOString();
+  const { data: recent } = await supabase
+    .from("verification_codes")
+    .select("created_at")
+    .eq("email", normalizedEmail)
+    .gt("created_at", sixtySecsAgo)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
   if (recent) {
-    const waitSeconds = Math.ceil(
-      (recent.createdAt.getTime() + 60 * 1000 - Date.now()) / 1000
-    );
+    const createdAtMs = new Date(recent.created_at).getTime();
+    const waitSeconds = Math.max(1, Math.ceil((createdAtMs + 60 * 1000 - Date.now()) / 1000));
     throw new Error(`Please wait ${waitSeconds}s before requesting a new code.`);
   }
 
@@ -52,20 +55,27 @@ export async function createAndSaveVerificationCode(
   const expiresAt = new Date(now.getTime() + 10 * 60 * 1000); // 10 minutes
 
   // Invalidate any older unused codes for this email
-  await db.collection<VerificationCodeDocument>("verification_codes").updateMany(
-    { email: normalizedEmail, used: false },
-    { $set: { used: true } }
-  );
+  await supabase
+    .from("verification_codes")
+    .update({ used: true })
+    .eq("email", normalizedEmail)
+    .eq("used", false);
 
-  await db.collection<VerificationCodeDocument>("verification_codes").insertOne({
-    email: normalizedEmail,
-    codeHash,
-    name: name?.trim(),
-    createdAt: now,
-    expiresAt,
-    attempts: 0,
-    used: false,
-  });
+  const { error: insertError } = await supabase
+    .from("verification_codes")
+    .insert({
+      email: normalizedEmail,
+      code_hash: codeHash,
+      name: name?.trim() || null,
+      created_at: now.toISOString(),
+      expires_at: expiresAt.toISOString(),
+      attempts: 0,
+      used: false,
+    });
+
+  if (insertError) {
+    throw new Error(`Failed to save verification code: ${insertError.message}`);
+  }
 
   return { code, expiresAt };
 }
@@ -74,93 +84,123 @@ export async function verifyCodeAndAuthenticate(
   email: string,
   code: string,
   name?: string
-): Promise<{ user: UserDocument; token: string; isNewUser: boolean }> {
-  const db = await getDb();
+): Promise<{ user: UserRecord; token: string; isNewUser: boolean }> {
+  const supabase = getSupabase();
   const normalizedEmail = email.toLowerCase().trim();
   const codeHash = hashCode(code);
+  const now = new Date();
 
-  const record = await db.collection<VerificationCodeDocument>("verification_codes").findOne({
-    email: normalizedEmail,
-    used: false,
-    expiresAt: { $gt: new Date() },
-  });
+  const { data: record } = await supabase
+    .from("verification_codes")
+    .select("*")
+    .eq("email", normalizedEmail)
+    .eq("used", false)
+    .gt("expires_at", now.toISOString())
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
   if (!record) {
     throw new Error("Verification code is invalid or has expired. Please request a new one.");
   }
 
   if (record.attempts >= 5) {
-    await db.collection<VerificationCodeDocument>("verification_codes").updateOne(
-      { _id: record._id },
-      { $set: { used: true } }
-    );
+    await supabase
+      .from("verification_codes")
+      .update({ used: true })
+      .eq("id", record.id);
     throw new Error("Too many incorrect attempts. Please request a new code.");
   }
 
-  if (record.codeHash !== codeHash) {
-    await db.collection<VerificationCodeDocument>("verification_codes").updateOne(
-      { _id: record._id },
-      { $inc: { attempts: 1 } }
-    );
+  if (record.code_hash !== codeHash) {
+    await supabase
+      .from("verification_codes")
+      .update({ attempts: record.attempts + 1 })
+      .eq("id", record.id);
     throw new Error("Incorrect verification code. Please try again.");
   }
 
   // Mark code as used
-  await db.collection<VerificationCodeDocument>("verification_codes").updateOne(
-    { _id: record._id },
-    { $set: { used: true } }
-  );
+  await supabase
+    .from("verification_codes")
+    .update({ used: true })
+    .eq("id", record.id);
 
   // Find or create user
-  const now = new Date();
-  const existingUser = await db.collection<UserDocument>("users").findOne({
-    email: normalizedEmail,
-  });
+  const { data: existingUser } = await supabase
+    .from("users")
+    .select("*")
+    .eq("email", normalizedEmail)
+    .maybeSingle();
 
-  let user: UserDocument;
+  let user: UserRecord;
   let isNewUser = false;
 
   if (existingUser) {
     isNewUser = false;
-    await db.collection<UserDocument>("users").updateOne(
-      { _id: existingUser._id },
-      {
-        $set: {
-          lastLoginAt: now,
-          updatedAt: now,
-          ...(name && !existingUser.name ? { name: name.trim() } : {}),
-        },
-      }
-    );
-    user = {
-      ...existingUser,
-      lastLoginAt: now,
-      updatedAt: now,
-      ...(name && !existingUser.name ? { name: name.trim() } : {}),
+    const updateData: Record<string, any> = {
+      last_login_at: now.toISOString(),
+      updated_at: now.toISOString(),
     };
+    if (name && !existingUser.name) {
+      updateData.name = name.trim();
+    }
+    const { data: updated } = await supabase
+      .from("users")
+      .update(updateData)
+      .eq("id", existingUser.id)
+      .select()
+      .single();
+
+    user = updated || { ...existingUser, ...updateData };
   } else {
     isNewUser = true;
-    const newUser: UserDocument = {
+    const newUserData = {
       email: normalizedEmail,
       name: name?.trim() || record.name || normalizedEmail.split("@")[0],
-      createdAt: now,
-      updatedAt: now,
-      lastLoginAt: now,
       role: "user",
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
+      last_login_at: now.toISOString(),
     };
-    const insertResult = await db.collection<UserDocument>("users").insertOne(newUser);
-    user = { ...newUser, _id: insertResult.insertedId };
+    const { data: created, error: insertError } = await supabase
+      .from("users")
+      .insert(newUserData)
+      .select()
+      .single();
+
+    if (insertError) {
+      throw new Error(`Failed to create user: ${insertError.message}`);
+    }
+    user = created;
   }
 
+  // Populate helper aliases
+  user.createdAt = user.created_at;
+  user.updatedAt = user.updated_at;
+  user.lastLoginAt = user.last_login_at || undefined;
+  user._id = user.id;
+
   const token = signToken({
-    userId: user._id!.toString(),
+    userId: user.id,
     email: user.email,
   });
 
   return { user, token, isNewUser };
 }
 
-export async function getUserById(userId: string): Promise<UserDocument | null> {
-  const db = await getDb();
-  return db.collection<UserDocument>("users").findOne({ _id: new ObjectId(userId) });
+export async function getUserById(userId: string): Promise<UserRecord | null> {
+  const supabase = getSupabase();
+  const { data: user } = await supabase
+    .from("users")
+    .select("*")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (!user) return null;
+  user.createdAt = user.created_at;
+  user.updatedAt = user.updated_at;
+  user.lastLoginAt = user.last_login_at || undefined;
+  user._id = user.id;
+  return user;
 }

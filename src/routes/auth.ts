@@ -7,7 +7,7 @@ import {
   verifyToken,
 } from "../services/auth.js";
 import { sendVerificationEmail, sendNewUserTeamNotification, verifySmtpConnection } from "../services/email.js";
-import { getDb } from "../db/mongo.js";
+import { checkSupabaseConnection } from "../db/supabase.js";
 
 export const authRouter = Router();
 
@@ -96,12 +96,12 @@ authRouter.post("/verify-code", async (req: Request, res: Response): Promise<voi
       token,
       isNewUser,
       user: {
-        id: user._id?.toString(),
+        id: user.id || user._id?.toString(),
         email: user.email,
         name: user.name,
         role: user.role || "user",
-        createdAt: user.createdAt,
-        lastLoginAt: user.lastLoginAt,
+        createdAt: user.created_at || user.createdAt,
+        lastLoginAt: user.last_login_at || user.lastLoginAt,
       },
     });
   } catch (err: any) {
@@ -133,12 +133,12 @@ authRouter.get("/me", async (req: Request, res: Response): Promise<void> => {
     res.json({
       success: true,
       user: {
-        id: user._id?.toString(),
+        id: user.id || user._id?.toString(),
         email: user.email,
         name: user.name,
         role: user.role || "user",
-        createdAt: user.createdAt,
-        lastLoginAt: user.lastLoginAt,
+        createdAt: user.created_at || user.createdAt,
+        lastLoginAt: user.last_login_at || user.lastLoginAt,
       },
     });
   } catch (err: any) {
@@ -156,15 +156,8 @@ authRouter.post("/logout", (_req: Request, res: Response): void => {
 
 // GET /api/health
 authRouter.get("/health", async (_req: Request, res: Response): Promise<void> => {
-  let dbStatus = "unknown";
-  try {
-    const db = await getDb();
-    await db.command({ ping: 1 });
-    dbStatus = "connected";
-  } catch (err: any) {
-    dbStatus = `disconnected (${err?.message || "error"})`;
-  }
-
+  const dbCheck = await checkSupabaseConnection();
+  const dbStatus = dbCheck.connected ? "connected" : `disconnected (${dbCheck.message || "error"})`;
   const smtpStatus = await verifySmtpConnection();
 
   res.json({

@@ -1,6 +1,6 @@
 import { app } from "./app.js";
 import { env } from "./config/env.js";
-import { connectToDatabase } from "./db/mongo.js";
+import { checkSupabaseConnection } from "./db/supabase.js";
 import { verifySmtpConnection } from "./services/email.js";
 
 async function startServer() {
@@ -8,12 +8,16 @@ async function startServer() {
   console.log("🚀 Starting Qubtic Authentication Server...");
   console.log("==========================================");
 
-  // Test MongoDB Connection
+  // Test Supabase Connection
   try {
-    await connectToDatabase();
-    console.log("✅ MongoDB connected successfully to database:", env.MONGODB_DB_NAME);
+    const dbCheck = await checkSupabaseConnection();
+    if (dbCheck.connected) {
+      console.log("✅ Supabase connected successfully to:", env.SUPABASE_URL);
+    } else {
+      console.warn("⚠️ Supabase connection warning (configure keys in .env):", dbCheck.message);
+    }
   } catch (err: any) {
-    console.warn("⚠️ MongoDB connection warning (will retry on incoming requests):", err?.message);
+    console.warn("⚠️ Supabase check error:", err?.message);
   }
 
   // Test SMTP Connection
