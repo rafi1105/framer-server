@@ -15,9 +15,10 @@ const envSchema = z.object({
   SMTP_SECURE: z.string().default("false").transform((val) => val === "true"),
   SMTP_USER: z.string().default("qubticpro@gmail.com"),
   SMTP_PASS: z.string().default(""),
-  SMTP_FROM: z.string().default('"FrameKit by Qubtic" <noreply@qubtic.com>'),
+  SMTP_FROM: z.string().default('"frame-drop by Qubtic" <noreply@qubtic.com>'),
   TEAM_NOTIFICATION_EMAIL: z.string().default("hello@qubtic.com"),
   CLIENT_ORIGIN: z.string().default("http://localhost:5173"),
+  FRONTEND_URL: z.string().optional(),
 });
 
 export const env = envSchema.parse(process.env);

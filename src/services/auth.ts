@@ -83,7 +83,13 @@ export async function createAndSaveVerificationCode(
 export async function verifyCodeAndAuthenticate(
   email: string,
   code: string,
-  name?: string
+  name?: string,
+  meta?: {
+    framerSiteId?: string;
+    framerSiteName?: string;
+    framerSiteUrl?: string;
+    framerUserId?: string;
+  }
 ): Promise<{ user: UserRecord; token: string; isNewUser: boolean }> {
   const supabase = getSupabase();
   const normalizedEmail = email.toLowerCase().trim();
@@ -145,6 +151,16 @@ export async function verifyCodeAndAuthenticate(
     if (name && !existingUser.name) {
       updateData.name = name.trim();
     }
+    if (meta?.framerSiteId) {
+      updateData.framer_site_id = meta.framerSiteId;
+    }
+    if (meta?.framerSiteName) {
+      updateData.framer_site_name = meta.framerSiteName;
+    }
+    if (meta?.framerSiteUrl) {
+      updateData.framer_site_url = meta.framerSiteUrl;
+    }
+
     const { data: updated } = await supabase
       .from("users")
       .update(updateData)
@@ -155,10 +171,13 @@ export async function verifyCodeAndAuthenticate(
     user = updated || { ...existingUser, ...updateData };
   } else {
     isNewUser = true;
-    const newUserData = {
+    const newUserData: Record<string, any> = {
       email: normalizedEmail,
       name: name?.trim() || record.name || normalizedEmail.split("@")[0],
-      role: "user",
+      role: "pro", // Early bird unlock
+      framer_site_id: meta?.framerSiteId || null,
+      framer_site_name: meta?.framerSiteName || null,
+      framer_site_url: meta?.framerSiteUrl || null,
       created_at: now.toISOString(),
       updated_at: now.toISOString(),
       last_login_at: now.toISOString(),
@@ -173,6 +192,22 @@ export async function verifyCodeAndAuthenticate(
       throw new Error(`Failed to create user: ${insertError.message}`);
     }
     user = created;
+  }
+
+  // Initialize/sync 7-day trial in framedrop_trials if siteId is available
+  if (meta?.framerSiteId) {
+    try {
+      const { getOrCreateTrial } = await import("./tracking.js");
+      await getOrCreateTrial({
+        siteId: meta.framerSiteId,
+        siteName: meta.framerSiteName,
+        siteUrl: meta.framerSiteUrl,
+        framerUserId: meta.framerUserId,
+        email: normalizedEmail,
+      });
+    } catch (trialErr: any) {
+      console.warn("⚠️ getOrCreateTrial notice during auth:", trialErr?.message);
+    }
   }
 
   // Populate helper aliases

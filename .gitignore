@@ -7,3 +7,5 @@ dist/
 *.log
 preview-*.html
 
+.vercel
+.env*

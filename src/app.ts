@@ -1,24 +1,14 @@
 import express, { Express, Request, Response, NextFunction } from "express";
 import cors from "cors";
 import { authRouter } from "./routes/auth.js";
+import { trackingRouter } from "./routes/tracking.js";
 import { env } from "./config/env.js";
+import { corsOptions } from "./config/cors.js";
 
 export const app: Express = express();
 
-// Middleware
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (e.g., mobile apps, curl, Framer plugins)
-      if (!origin) return callback(null, true);
-      // In dev or if configured, allow all or specific origins
-      return callback(null, true);
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
-);
+// Middleware - Connectfic-tailored CORS for Framer Canvas & Cloud
+app.use(cors(corsOptions));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -42,7 +32,9 @@ app.get("/", (_req: Request, res: Response) => {
 
 // Routes
 app.use("/api/auth", authRouter);
+app.use("/api/tracking", trackingRouter);
 app.use("/api", authRouter); // Also mount at /api for convenience (e.g. /api/health)
+app.use("/api", trackingRouter); // Allows /api/subscription-status, /api/track-usage directly
 
 // Global 404 handler
 app.use((req: Request, res: Response) => {
@@ -60,3 +52,5 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     error: err?.message || "Internal server error",
   });
 });
+
+export default app;

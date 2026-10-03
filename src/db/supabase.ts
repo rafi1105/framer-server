@@ -6,6 +6,12 @@ export interface UserRecord {
   email: string;
   name?: string | null;
   role?: string | null;
+  plan?: string | null;
+  subscription_status?: string | null;
+  plugin_name?: string | null;
+  framer_site_id?: string | null;
+  framer_site_name?: string | null;
+  framer_site_url?: string | null;
   created_at: string;
   updated_at: string;
   last_login_at?: string | null;
@@ -24,6 +30,7 @@ export interface VerificationCodeRecord {
   email: string;
   code_hash: string;
   name?: string | null;
+  plugin_name?: string | null;
   attempts: number;
   used: boolean;
   expires_at: string;
@@ -31,6 +38,33 @@ export interface VerificationCodeRecord {
 }
 
 export type VerificationCodeDocument = VerificationCodeRecord;
+
+export interface FramedropTrialRecord {
+  id: string;
+  site_id: string;
+  plugin_name: string;
+  email?: string | null;
+  site_name?: string | null;
+  site_url?: string | null;
+  framer_user_id?: string | null;
+  trial_start: string;
+  trial_end: string;
+  components_added: number;
+  current_plan_status: string; // 'trialing' | 'active' | 'expired' | 'inactive'
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FramedropEventRecord {
+  id: string;
+  site_id: string;
+  plugin_name: string;
+  framer_user_id?: string | null;
+  email?: string | null;
+  event_type: string;
+  event_data?: Record<string, any>;
+  created_at: string;
+}
 
 let cachedClient: SupabaseClient | null = null;
 

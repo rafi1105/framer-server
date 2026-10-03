@@ -52,7 +52,7 @@ SMTP_PORT=587
 SMTP_SECURE=false
 SMTP_USER=your_smtp_user_or_email
 SMTP_PASS=your_smtp_password
-SMTP_FROM="FrameKit by Qubtic" <noreply@qubtic.com>
+SMTP_FROM="frame-drop by Qubtic" <noreply@qubtic.com>
 
 # Team Alerts
 TEAM_NOTIFICATION_EMAIL=hello@qubtic.com
@@ -182,6 +182,6 @@ The server will run at `http://localhost:4000`.
    - `SMTP_PORT`: `587`
    - `SMTP_USER`: `qubticpro@gmail.com`
    - `SMTP_PASS`: Your SMTP password
-   - `SMTP_FROM`: `"FrameKit by Qubtic" <noreply@qubtic.com>`
+   - `SMTP_FROM`: `"frame-drop by Qubtic" <noreply@qubtic.com>`
    - `TEAM_NOTIFICATION_EMAIL`: `hello@qubtic.com`
-3. Once deployed, copy your Vercel production URL (e.g. `https://qubtic-auth.vercel.app`) into your FrameKit plugin settings or environment variables.
+3. Once deployed, copy your Vercel production URL (e.g. `https://qubtic-auth.vercel.app`) into your frame-drop plugin settings or environment variables.

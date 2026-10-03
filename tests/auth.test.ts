@@ -35,14 +35,14 @@ describe("Passwordless Auth Service", () => {
     expect(decoded.email).toBe(payload.email);
   });
 
-  it("should generate branded HTML email for user OTP verification with Qubtic & FrameKit branding", () => {
+  it("should generate branded HTML email for user OTP verification with Qubtic & frame-drop branding", () => {
     const html = generateVerificationEmailHtml("849201", "Rafi Kabir");
     expect(html).toContain("849201");
     expect(html).toContain("Hi Rafi Kabir,");
-    expect(html).toContain("FRAMEKIT");
-    expect(html).toContain("QUBTIC TECHNOLOGIES");
+    expect(html).toContain("QUBTIC");
     expect(html).toContain("10 minutes");
     expect(html).toContain("qubtic.tech");
+    expect(html).toContain("#164E33");
   });
 
   it("should generate branded HTML team notification email with full user sign-up details", () => {
@@ -57,29 +57,22 @@ describe("Passwordless Auth Service", () => {
     };
 
     const mockMeta = {
-      ip: "103.145.74.22",
-      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
       origin: "https://framer.com",
+      framerUserId: "usr_mock_12345",
+      framerSiteUrl: "https://mycoolsite.framer.app",
     };
 
     const html = generateNewUserTeamNotificationEmailHtml(mockUser, mockMeta);
 
     // Verify key fields are included
-    expect(html).toContain("NEW USER REGISTERED");
-    expect(html).toContain("FrameKit Team Alert");
+    expect(html).toContain("New Member Provisioned");
     expect(html).toContain("newcreator@gmail.com");
     expect(html).toContain("Rafi Kabir");
     expect(html).toContain("507f1f77-bcf8-4cd7-9943-9011abcdef12");
-    expect(html).toContain("103.145.74.22");
-    expect(html).toContain("https://framer.com");
+    expect(html).toContain("usr_mock_12345");
+    expect(html).toContain("https://mycoolsite.framer.app");
     expect(html).toContain("Qubtic Technologies");
-
-    // Verify Left side App Logo & Right side Company Logo layout
-    expect(html).toContain("FRAMER PLUGIN APP");
-    expect(html).toContain("FrameKit");
-    expect(html).toContain("QUBTIC");
-    expect(html).toContain("TECHNOLOGIES HQ");
-    expect(html).toContain("hello@qubtic.com");
-    expect(html).toContain("Reply to User");
+    expect(html).toContain("#164E33");
+    expect(html).toContain("Reply to Member");
   });
 });

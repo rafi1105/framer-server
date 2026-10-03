@@ -21,6 +21,10 @@ const verifyCodeSchema = z.object({
   email: z.string().email("Invalid email address"),
   code: z.string().regex(/^\d{6}$/, "Verification code must be exactly 6 digits"),
   name: z.string().optional(),
+  framerSiteId: z.string().optional(),
+  framerSiteName: z.string().optional(),
+  framerSiteUrl: z.string().optional(),
+  framerUserId: z.string().optional(),
 });
 
 // POST /api/auth/send-code
@@ -77,15 +81,21 @@ authRouter.post("/verify-code", async (req: Request, res: Response): Promise<voi
       return;
     }
 
-    const { email, code, name } = parseResult.data;
-    const { user, token, isNewUser } = await verifyCodeAndAuthenticate(email, code, name);
+    const { email, code, name, framerSiteId, framerSiteName, framerSiteUrl, framerUserId } = parseResult.data;
+    const { user, token, isNewUser } = await verifyCodeAndAuthenticate(email, code, name, {
+      framerSiteId,
+      framerSiteName,
+      framerSiteUrl,
+      framerUserId,
+    });
 
     // If new user signed up, dispatch team notification email with user details
     if (isNewUser) {
+      const siteUrl = framerSiteUrl || (req.headers["origin"] || req.headers["referer"] || "frame-drop Framer Plugin")?.toString();
       sendNewUserTeamNotification(user, {
-        ip: (req.headers["x-forwarded-for"] || req.socket.remoteAddress || req.ip)?.toString(),
-        userAgent: req.headers["user-agent"],
-        origin: (req.headers["origin"] || req.headers["referer"])?.toString(),
+        origin: siteUrl,
+        framerUserId: framerUserId,
+        framerSiteUrl: siteUrl,
       }).catch((teamErr) => {
         console.warn("⚠️ Could not deliver team sign-up notification:", teamErr?.message);
       });
@@ -152,6 +162,47 @@ authRouter.get("/me", async (req: Request, res: Response): Promise<void> => {
 // POST /api/auth/logout
 authRouter.post("/logout", (_req: Request, res: Response): void => {
   res.json({ success: true, message: "Logged out successfully" });
+});
+
+// POST /api/auth/sync-site-info (Update framer_site_id, framer_site_name, framer_site_url)
+authRouter.post("/sync-site-info", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { email, framerSiteId, framerSiteName, framerSiteUrl, framerUserId } = req.body;
+    if (!email || typeof email !== "string") {
+      res.status(400).json({ success: false, error: "Valid email is required" });
+      return;
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const updatePayload: Record<string, any> = {
+      updated_at: new Date().toISOString(),
+    };
+    if (framerSiteId) updatePayload.framer_site_id = framerSiteId;
+    if (framerSiteName) updatePayload.framer_site_name = framerSiteName;
+    if (framerSiteUrl) updatePayload.framer_site_url = framerSiteUrl;
+
+    const supabase = (await import("../db/supabase.js")).getSupabase();
+    await supabase.from("users").update(updatePayload).eq("email", normalizedEmail);
+
+    if (framerSiteId) {
+      try {
+        const { getOrCreateTrial } = await import("../services/tracking.js");
+        await getOrCreateTrial({
+          siteId: framerSiteId,
+          siteName: framerSiteName,
+          siteUrl: framerSiteUrl,
+          framerUserId,
+          email: normalizedEmail,
+        });
+      } catch (trialErr: any) {
+        console.warn("⚠️ getOrCreateTrial notice during sync-site-info:", trialErr?.message);
+      }
+    }
+
+    res.json({ success: true, message: "Framer site metadata synchronized successfully" });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err?.message || "Failed to sync site info" });
+  }
 });
 
 // GET /api/health
